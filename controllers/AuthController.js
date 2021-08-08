@@ -8,7 +8,7 @@ const bcrypt = require("bcrypt");
  * @param  {} next
  * @returns
  */
-exports.register = async (req, res, next) => {
+exports.register = (req, res, next) => {
   bcrypt
     .hash(req.body.password, 10)
     .then((hash) => {
@@ -33,4 +33,51 @@ exports.register = async (req, res, next) => {
       res.status(500).json({ error: err });
     });
 };
+/**
+ * @param  {} req
+ * @param  {} res
+ * @param  {} next
+ */
+exports.login = (req, res, next) => {
+  let getUser;
+  userSchema
+    .findOne({
+      email: req.body.email,
+    })
+    .then((user) => {
+      if (!user) {
+        return res.status(401).json({
+          message: "Authentication failed",
+        });
+      }
+      getUser = user;
+      return bcrypt.compare(req.body.password, user.password);
+    })
+    .then((response) => {
+      if (!response) {
+        return res.status(401).json({ message: "Authentication Failed" });
+      }
 
+      let jwtToken = jwt.sign(
+        {
+          email: getUser.email,
+          userId: getUser._id,
+        },
+        "longer-secret-is-better",
+        {
+          expiresIn: "1h",
+        }
+      );
+
+      res.status(200).json({
+        token: jwtToken,
+        expiresIn: 3600,
+        data: getUser,
+      });
+    })
+    .catch((error) => {
+      return res.status(401).json({
+        message: "Authentication Failed",
+      });
+    });
+};
